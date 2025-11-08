@@ -56,3 +56,17 @@ def sim():
         print("Problem in the Data Simulator")
         sys.exit()
 sim()
+print("")
+
+# Processing everything
+def process():
+    try:
+        print("Starting the process...")
+        time.sleep(1)
+        from Processor import process as run_process
+        run_process()
+        print("Done Processing Check the result.csv file")
+    except:
+        print("There is a Problem in the processor")
+        sys.exit()
+process()

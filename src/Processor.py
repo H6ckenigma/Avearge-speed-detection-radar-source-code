@@ -43,13 +43,3 @@ def process():
     merged['status'] = status
 
     merged.to_csv("../Data/results.csv", index=False)          
-
-    bad = merged[merged['status'] == "High Speed"]
-    
-    if len(bad) > 0:
-        bad = bad.sort_values(by='excess', ascending=False)
-        print("The cars that has exceeded the limit are")
-        print(bad[['plate', 'speed', 'excess', 'status', 'city']])
-    else:
-        print("All drivers are Good")
-process()
