@@ -37,10 +37,5 @@ def data_gen():
         radar_a.append([plate, time_a])
         radar_b.append([plate, time_b])
 
-        if i < 3:
-            print(f"Car {i+1}: {plate} / speed: {speed} km/h")
-
     pandas.DataFrame(radar_a, columns=["plate", "time"]).to_csv("../data/radar_a.csv", index=False)
     pandas.DataFrame(radar_b, columns=["plate", "time"]).to_csv("../data/radar_b.csv", index=False)
-    print("Files Edited")
-data_gen()
