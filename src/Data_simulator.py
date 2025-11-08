@@ -2,9 +2,7 @@
 import pandas
 import random
 from datetime import datetime, timedelta
-from radar_conf import Distance
-
-Num_cars = int(input("Give a number of cars: "))
+from radar_conf import Distance, Num_cars
 
 # generateur mat
 def gen_plate():    
@@ -13,7 +11,7 @@ def gen_plate():
         num += str(random.randint(0,9))
     city = str(random.randint(1,58))
     letter = random.choice("ABDEFG")
-    return num + "|" + city + "|" + letter
+    return num + "|" + letter + "|" + city
 
 #main func
 def data_gen():
@@ -21,14 +19,15 @@ def data_gen():
     radar_b = []
 
     F_time = datetime.now().replace(microsecond=0)
-
+    print(f"Genrating {Num_cars} Cars Now...")
     for i in range(Num_cars):
         plate = gen_plate()
        
         # Simulation a to b in random time
         seconds_a = random.randint(0, 300)
         time_a = F_time + timedelta(seconds=seconds_a)
-        speed = random.randint(100, 200) #km/s
+        
+        speed = random.randint(80, 160) #km/s
         
         time_seconds = (Distance / speed) * 3600
 
@@ -41,7 +40,7 @@ def data_gen():
         if i < 3:
             print(f"Car {i+1}: {plate} / speed: {speed} km/h")
 
-    pandas.DataFrame(radar_a, columns=["plate", "time"]).to_csv("../Data/radar_a.csv", index=False)
-    pandas.DataFrame(radar_b, columns=["plate", "time"]).to_csv("../Data/radar_b.csv", index=False)
+    pandas.DataFrame(radar_a, columns=["plate", "time"]).to_csv("../data/radar_a.csv", index=False)
+    pandas.DataFrame(radar_b, columns=["plate", "time"]).to_csv("../data/radar_b.csv", index=False)
     print("Files Edited")
 data_gen()

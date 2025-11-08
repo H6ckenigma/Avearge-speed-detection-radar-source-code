@@ -1,12 +1,14 @@
 # config file
 
 # Distance Between 2 Radars
-Distance = float(input("What is the distance in KM? "))
+Distance = 50.0
 
 # Speed Limit
-Speed_limit = float(input("What is the speed limit in KM/h? "))
+Speed_limit = 120
 
+# Number Of cars to generate
+Num_cars = 30
 #csv files
-radar_a_file = "../Data/radar_a.csv"
-radar_b_file = "../Data/radar_b.csv"
-results_file = "../Data/results.csv"
+radar_a_file = "../data/radar_a.csv"
+radar_b_file = "../data/radar_b.csv"
+results_file = "../data/results.csv"
