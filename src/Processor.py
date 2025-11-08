@@ -24,12 +24,14 @@ def process():
     #Speed Calc
     h = diff.dt.total_seconds() / 3600
     speed = Distance / h
-
+    
+    
     merged['speed'] = speed.round(0).astype(int).astype(str) + "Km/h"
     merged['excess'] = merged['speed'].str.replace("Km/h", "").astype(int) - Speed_limit
     merged['excess'] = merged['excess'].clip(lower=0)
     merged['city_code'] = merged['plate'].str.split('|').str[2]
     merged['city'] = merged['city_code'].map(citys).fillna("Unknown")
+    
     #checker
     status = []
     for s in speed:
