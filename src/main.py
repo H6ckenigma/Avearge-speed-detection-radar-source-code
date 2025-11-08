@@ -65,8 +65,33 @@ def process():
         time.sleep(1)
         from Processor import process as run_process
         run_process()
-        print("Done Processing Check the result.csv file")
+        print("Done Processing")
     except:
         print("There is a Problem in the processor")
         sys.exit()
 process()
+
+print("")
+time.sleep(1)
+
+import pandas
+from radar_conf import Num_cars
+
+read = pandas.read_csv("../data/results.csv")
+speeders = read[read['status'] == "High Speed"]
+
+if len(speeders) == 0:
+    print("There is no speeders")
+else:
+    speeders = speeders.sort_values(by='excess', ascending=False)
+
+    top3 = speeders.head(3)
+    print("TOP 3 SPEEDERS ARE")
+    print("-" * 10)
+    for i, row in top3.iterrows():
+        print(f"Plate : {row['plate']}")
+        print(f"Speed: {row['speed']}")
+        print(f"Excess: {row['excess']}")
+        print(f"City {row['city']}")
+        print("-" * 10)
+        print("")
