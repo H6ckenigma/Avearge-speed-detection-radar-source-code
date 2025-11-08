@@ -2,8 +2,8 @@
 import pandas
 from radar_conf import Distance, Speed_limit
 def process():
-    a = pandas.read.csv("radar_a.csv")
-    b = pandas.read.csv("radar_b.csv")
+    a = pandas.read.csv("../Data/radar_a.csv")
+    b = pandas.read.csv("../Dara/radar_b.csv")
     
     #Datetime format
     a['time'] = pandas.to_datetime(a['time'])
@@ -32,5 +32,5 @@ def process():
     
     merged['status'] = status
 
-    merged.to_csv("results.csv", index=False)          
+    merged.to_csv("../Data/results.csv", index=False)          
 

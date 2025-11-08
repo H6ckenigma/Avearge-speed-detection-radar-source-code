@@ -41,7 +41,7 @@ def data_gen():
         if i < 3:
             print(f"Car {i+1}: {plate} / speed: {speed} km/h")
 
-    pandas.DataFrame(radar_a, columns=["plate", "time"]).to_csv("radar_a.csv", index=False)
-    pandas.DataFrame(radar_b, columns=["plate", "time"]).to_csv("radar_b.csv", index=False)
+    pandas.DataFrame(radar_a, columns=["plate", "time"]).to_csv("../Data/radar_a.csv", index=False)
+    pandas.DataFrame(radar_b, columns=["plate", "time"]).to_csv("../Data/radar_b.csv", index=False)
     print("Files Edited")
 data_gen()
