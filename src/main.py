@@ -50,3 +50,47 @@ for i in range(3):
     time.sleep(0.5)
 print("Ctrl+C to quit")
 time.sleep(1)
+
+from radar_conf import Distance, Speed_limit, radar_a_file, radar_b_file, results_file
+from Data_simulator import gen_one_car, add_to_csv, gen_plate
+from Processor import process
+import random
+import time
+import pandas
+
+cars_total = 0
+last_update = time.time()
+
+try:
+    while True:
+        
+        # Randomizing
+        if random.random() < 0.3:
+            plate, time_a, time_b, speed = gen_one_car()
+            cars_total += 1
+            if speed > Speed_limit:
+                status = "Speeding!!"
+            else:
+                status = "Good"
+            print(f"Car #{cars_total} > {plate} going {speed} km/h >> {status}")
+        
+        # Wait for user to check output
+        time.sleep(1 + random.random() * 2)
+        
+        # Check every 10 secs
+        now = time.time()
+        if now - last_update > 10:
+            try:
+                process()
+                print("Results Updated.")
+
+                read = pandas.read_csv(results_file)
+                speeders = read[read['status'] == "High Speed"]
+
+            except Exception:
+                print("")
+
+            last_update = now
+except KeyboardInterrupt:
+    print("\n\nRadar Turned Off")
+    sys.exit
