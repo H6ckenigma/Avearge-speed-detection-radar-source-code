@@ -1,6 +1,7 @@
 #Simulates Radar data
 import pandas
 import random
+import os
 from datetime import datetime, timedelta
 from radar_conf import Distance, Num_cars
 
@@ -13,29 +14,27 @@ def gen_plate():
     letter = random.choice("ABDEFG")
     return num + "|" + letter + "|" + city
 
-#main func
-def data_gen():
-    radar_a = []
-    radar_b = []
+def add_to_csv(file, stuff):
+    df = pandas.DataFrame([stuff], columns=["plate", "time"])
+    if os.path.exists(file):
+        df.to_csv(file, mode='a', header=False, index=False)
+    else:
+        df.to_csv(file, index=False)
 
-    F_time = datetime.now().replace(microsecond=0)
-    print(f"Genrating {Num_cars} Cars Now...")
-    for i in range(Num_cars):
+    # Generate Only One Car
+    def gen_one_car():
         plate = gen_plate()
-       
-        # Simulation a to b in random time
-        seconds_a = random.randint(0, 300)
-        time_a = F_time + timedelta(seconds=seconds_a)
-        
-        speed = random.randint(80, 160) #km/s
-        
-        time_seconds = (Distance / speed) * 3600
 
+        now = datetime.now()
+        offset = random.randint(-5, 5)
+        time_a = now + timedelta(seconds=offset)
+
+        speed = random.randint(80, 160)
+
+        time_seconds = (Distance / speed) * 3600
         time_b = time_a + timedelta(seconds=int(time_seconds))
 
-        #making lists
-        radar_a.append([plate, time_a])
-        radar_b.append([plate, time_b])
+        add_to_csv("../data/radar_a.csv", [plate, time_a])
+        add_to_csv("../data/radar_b.csv", [plate, time_b])
 
-    pandas.DataFrame(radar_a, columns=["plate", "time"]).to_csv("../data/radar_a.csv", index=False)
-    pandas.DataFrame(radar_b, columns=["plate", "time"]).to_csv("../data/radar_b.csv", index=False)
+        return plate, time_a, time_b
