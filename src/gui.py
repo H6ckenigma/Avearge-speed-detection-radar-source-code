@@ -3,7 +3,7 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QHBoxLayout, QPushButton, QTextEdit
 from PyQt6.QtCore import Qt
-
+import subprocess
 class RadarGUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -124,7 +124,11 @@ class RadarGUI(QMainWindow):
         self.stop_btn.setStyleSheet(btn_style)
         self.start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        
+        self.sim_process = None
+
+        self.start_btn.clicked.connect(self.start_simulation)
+        self.stop_btn.clicked.connect(self.stop_simulation)
+
         button_layout.addWidget(self.start_btn)
         button_layout.addWidget(self.stop_btn)
         layout.addLayout(button_layout)
@@ -185,6 +189,34 @@ class RadarGUI(QMainWindow):
         
         layout.addStretch()
 
+    def start_simulation(self):
+        if self.sim_process is not None:
+            return
+        import subprocess
+        import sys
+
+        try:
+            self.sim_process = subprocess.Popen([sys.executable, "main.py"])
+            self.start_btn.setEnabled(False)
+            self.stop_btn.setEnabled(True)
+            self.status.setText("Simulation running...")
+            self.status.setStyleSheet(self.status.styleSheet() + " color: #00ff00; font-weight: bold;")
+            self.live_log.append("Simulation Started. Waiting for cars..")
+        except Exception:
+            self.live_log.append(f"ERROR: {Exception}")
+
+    def stop_simulation(self):
+        if self.sim_process is None:
+            return
+        try:
+            self.sim_process.terminate()
+            self.sim_process = None
+            self.start_btn.setEnabled(True)
+            self.stop_btn.setEnabled(False)
+            self.status.setText("Simulation stopped.")
+            self.status.setStyleSheet(self.status.styleSheet().replace("font-weight: bold;", ""))
+        except:
+            pass
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = RadarGUI()
