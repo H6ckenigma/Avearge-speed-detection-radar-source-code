@@ -95,4 +95,3 @@ else:
 
 st.markdown("---")
 st.markdown("The software version is better you can check it out in the github")
-st.markdown("GitHub: https://github.com/H6ckenigma/New_radr_system")
