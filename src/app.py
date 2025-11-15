@@ -8,7 +8,7 @@ from radar_conf import Distance, Speed_limit, Num_cars
 
 streamlit.set_page_config(
     page_title="Radar Enigma",
-    layout="Wide"
+    layout="wide"
 )
 
 streamlit.markdown("""
@@ -82,7 +82,7 @@ with col1:
 with col2:
     stop_btn = streamlit.button("Stop Simulation", use_container_width=True)
 
-streamlit("---")
+streamlit.markdown("---")
 
 streamlit("Live Detections")
 
@@ -149,8 +149,13 @@ if start_btn:
         'excess': max(0, speed - Speed_limit)
     })
 
-    time.sleep(1)
+    time.sleep(0.3)
 
 status_text.success("Simulation Complete")
     
+streamlit.markdown("---")
+if stop_btn:
+    if 'running' in streamlit.session_state:
+        streamlit.session_state.running = False
+    streamlit.success("Simulation end")
 streamlit.markdown("---")
