@@ -163,7 +163,7 @@ class RadarGUI(QMainWindow):
         """
 
         #title
-        title = QLabel("Radar Sys")
+        title = QLabel("Radar Enigma")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("""
             font-size: 22px;
