@@ -2,7 +2,7 @@
 
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QHBoxLayout, QPushButton, QTextEdit
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QProcess
 import subprocess
 import pandas
 import os
@@ -199,10 +199,12 @@ class RadarGUI(QMainWindow):
     def start_simulation(self):
         if self.sim_process is not None:
             return
-        import subprocess
-        import sys
+
         try:
-            self.sim_process = subprocess.Popen([sys.executable, "main.py"])
+            self.sim_process = QProcess()
+            self.sim_process.readyReadStandardOutput.connect(self.handle_stdout)
+            self.sim_process.readyReadStandardError.connect(self.handle_stderr)
+            self.sim_process.finished.connect(self.process_finished)
             
             self.start_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
@@ -213,11 +215,11 @@ class RadarGUI(QMainWindow):
             self.live_log.append(f"ERROR: {Exception}")
 
     def stop_simulation(self):
-        if self.sim_process is None:
+        if self.sim_process.state() == QProcess.ProcessState.NotRunning:
             return
         try:
             self.sim_process.terminate()
-            self.sim_process = None
+            self.sim_process.waitForFinished(3000)
             self.start_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
             self.status.setText("Simulation stopped.")
@@ -250,6 +252,22 @@ class RadarGUI(QMainWindow):
                 self.live_log.setPlainText(log_text.strip())
         except Exception:
             pass
+
+    def handle_stdout(self):
+        data = self.sim_process.readAllStandardOutput()
+        stdout = bytes(data).decode("utf8")
+        self.live_log.append(stdout.strip())
+        
+    def handle_stderr(self):
+        data = self.sim_process.readAllStandardError()
+        stderr = bytes(data).decode("utf8")
+        self.live_log.append(f"<font color='#ff5555'>ERROR {stderr.strip()}</font>")
+    
+    def process_finished(self):
+        self.live_log.append("Simulation ended.")
+        self.start_btn.setEnabled(True)
+        self.start_btn.setEnabled(False)
+        self.status.setText("Ready.")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
