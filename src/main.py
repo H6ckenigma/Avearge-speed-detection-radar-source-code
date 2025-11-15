@@ -48,8 +48,6 @@ time.sleep(0.5)
 for i in range(3):
     print(".", end="", flush=True)
     time.sleep(0.5)
-print("Ctrl+C to quit", flush = True)
-time.sleep(1)
 
 from radar_conf import Distance, Speed_limit, radar_a_file, radar_b_file, results_file
 from Data_simulator import gen_one_car, add_to_csv, gen_plate

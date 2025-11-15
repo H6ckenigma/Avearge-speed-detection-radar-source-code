@@ -1,11 +1,104 @@
 #The GUI
 
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QHBoxLayout, QPushButton, QTextEdit
-from PyQt6.QtCore import Qt, QProcess
+from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QHBoxLayout, QPushButton, QTextEdit, QLineEdit, QDialog, QFormLayout
+from PyQt6.QtCore import Qt, QProcess, QUrl
+from PyQt6.QtMultimedia import QSoundEffect
 import subprocess
 import pandas
 import os
+
+class SettingsDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Settings")
+        self.setMinimumWidth(400)
+
+        self.setStyleSheet("""
+            QDialog {
+                background: #1b263b;   
+                color: #e0e1dd;
+            }
+            QLabel {
+                color: #e0e1dd;
+                font-size: 14px;
+            }
+            QLineEdit {
+                background: #0d1b2a;
+                color: #e0e1dd;
+                border: 2px solid #3a86ff;        
+                border-radius:6px;
+                padding: 8px;
+                font-size: 14px;
+            }
+            QPushButton {
+            background: #3a86ff;
+            color: #e0e1dd;
+            border: non;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 6px;
+            }
+            QPushButton:hover {
+                background: #ffb703;       
+                color: #000000;
+            }
+        """)
+
+        from radar_conf import Distance, Speed_limit, Num_cars
+
+        layout = QVBoxLayout()
+        form = QFormLayout()
+
+        self.distance_input = QLineEdit(str(Distance))
+        form.addRow("Distance (km):", self.distance_input)
+
+        self.speed_input = QLineEdit(str(Speed_limit))
+        form.addRow("Speed Limit(km/h)", self.speed_input)
+
+        self.cars_input = QLineEdit(str(Num_cars))
+        form.addRow("Number of Cars", self.cars_input)
+
+        layout.addLayout(form)
+
+        button_layout = QHBoxLayout()
+        save_btn = QPushButton("Save")
+        cancel_btn = QPushButton("Cancel")
+
+        save_btn.clicked.connect(self.save_settings)
+        cancel_btn.clicked.connect(self.reject)
+
+        button_layout.addWidget(save_btn)
+        button_layout.addWidget(cancel_btn)
+        layout.addLayout(button_layout)
+
+        self.setLayout(layout)
+
+    def save_settings(self):
+        try:
+            with open('radar_conf.py', 'r') as f:
+                lines = f.readlines()
+            
+            new_lines = []
+            for line in lines:
+                if line.strip().startswith('Distance ='):
+                    new_lines.append(f"Distance = {float(self.distance_input.text())}\n")
+                elif line.strip().startswith('Speed_limit ='):
+                    new_lines.append(f"Speed_limit = {int(self.speed_input.text())}\n")
+                elif line.strip().startswith('Num_cars ='):
+                    new_lines.append(f"Num_cars = {int(self.cars_input.text())}\n")
+                else: new_lines.append(line)
+
+            with open('radar_conf.py', 'w') as f:
+                f.writelines(new_lines)
+
+            self.accept()
+        except Exception:
+            print(f"Error: {Exception}")
+            self.reject()
+
+
 class RadarGUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -31,6 +124,43 @@ class RadarGUI(QMainWindow):
         main_widget.setLayout(layout)
         layout.setSpacing(25)
         layout.setContentsMargins(40, 30, 40, 30)
+
+        # Style the button with animation
+        btn_style = """
+        QPushButton {
+            background: qlineargradient(
+                x1:0, y1:0, x2:0, y2:1,
+                stop:0 #3a86ff,
+                stop:1 #1d5fcf
+            );
+            color: #e0e1dd;
+            border: 2px solid #3a86ff;
+            padding: 18px 40px;
+            font-size: 15px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            border-radius: 12px;
+        }
+        QPushButton:hover {
+            background: qlineargradient(
+                x1:0, y1:0, x2:0, y2:1,
+                stop:0 #ffb703,
+                stop:1 #e09a03
+            );
+            color: #000000;
+            border: 2px solid #ffb703;
+        }
+        QPushButton:pressed {
+            background: #e09a03;
+            padding: 20px 40px 16px 40px;
+        }
+        QPushButton:disabled {
+            background: #415a77;
+            color: #8d99ae;
+            border: 2px solid #778da9;
+        }
+
+        """
 
         #title
         title = QLabel("Radar Sys")
@@ -76,6 +206,13 @@ class RadarGUI(QMainWindow):
         self.speedlimit_label.setStyleSheet(info_style)
         info_layout.addWidget(self.distance_label)
         info_layout.addWidget(self.speedlimit_label)
+        
+        self.settings_btn = QPushButton("Settings")
+        self.settings_btn.setStyleSheet(btn_style)
+        self.settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.settings_btn.clicked.connect(self.open_settings)
+        info_layout.addWidget(self.settings_btn)
+        
         layout.addLayout(info_layout)
 
         layout.addSpacing(20)
@@ -86,48 +223,25 @@ class RadarGUI(QMainWindow):
         self.stop_btn = QPushButton("Stop Sim")
 
         self.stop_btn.setEnabled(False)
-        # Style the button with animation
-        btn_style = """
-        QPushButton {
-            background: qlineargradient(
-                x1:0, y1:0, x2:0, y2:1,
-                stop:0 #3a86ff,
-                stop:1 #1d5fcf
-            );
-            color: #e0e1dd;
-            border: 2px solid #3a86ff;
-            padding: 18px 40px;
-            font-size: 15px;
-            font-weight: bold;
-            letter-spacing: 2px;
-            border-radius: 12px;
-        }
-        QPushButton:hover {
-            background: qlineargradient(
-                x1:0, y1:0, x2:0, y2:1,
-                stop:0 #ffb703,
-                stop:1 #e09a03
-            );
-            color: #000000;
-            border: 2px solid #ffb703;
-        }
-        QPushButton:pressed {
-            background: #e09a03;
-            padding: 20px 40px 16px 40px;
-        }
-        QPushButton:disabled {
-            background: #415a77;
-            color: #8d99ae;
-            border: 2px solid #778da9;
-        }
 
-"""
         self.start_btn.setStyleSheet(btn_style)
         self.stop_btn.setStyleSheet(btn_style)
         self.start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self.sim_process = QProcess()
+        
+        #Sound if someone is speeding
+        self.beep = QSoundEffect()
+        self.beep.setSource(QUrl.fromLocalFile("beep.wav"))
+        self.beep.setVolume(0.5)
+
+        #clear log button
+        self.clear_log_btn = QPushButton("Clear Log")
+        self.clear_log_btn.setStyleSheet(btn_style.replace("Start Simulation", "Clear Log"))
+        self.clear_log_btn.clicked.connect(self.clear_log)
+        button_layout.addWidget(self.clear_log_btn)
+
         self.sim_process.readyReadStandardOutput.connect(self.handle_stdout)
         self.sim_process.readyReadStandardError.connect(self.handle_stderr)
         self.sim_process.finished.connect(self.process_finished)
@@ -201,7 +315,8 @@ class RadarGUI(QMainWindow):
             return
 
         try:
-            self.sim_process.start(sys.executable, ["main.py"])
+            self.sim_process.start(sys.executable, ["-u", "main.py"])
+            self.live_log.clear()
             self.start_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
             self.status.setText("Simulation running...")
@@ -219,8 +334,9 @@ class RadarGUI(QMainWindow):
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.status.setText("Simulation stopped.")
-        self.status.setStyleSheet(self.status.styleSheet().replace("font-weight: bold;", ""))
-
+        self.status.setStyleSheet(self.status.styleSheet().replace("color: #00ff00;", "").replace("font-weight: bold;", ""))
+        if self.sim_process.state() == QProcess.ProcessState.Running:
+            self.sim_process.kill()
     
     def handle_stdout(self):
         data = self.sim_process.readAllStandardOutput()
@@ -231,6 +347,7 @@ class RadarGUI(QMainWindow):
                 continue
             if "SPEEDING" in line.upper():
                 self.live_log.append(f"<font color='#ff5555'>{line}</font>")
+                self.beep.play()
             elif "Car #" in line:
                 self.live_log.append(f"<font color='#55ff55'>{line}</font>")
             else:
@@ -248,6 +365,20 @@ class RadarGUI(QMainWindow):
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.status.setText("Ready.")
+    
+    def clear_log(self):
+        self.live_log.clear()
+        self.live_log.append("Log cleared.")
+
+    def open_settings(self):
+        dialog = SettingsDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+
+            from radar_conf import Distance, Speed_limit
+            self.distance_label.setText(f"Distance : {Distance} Km")
+            self.speedlimit_label.setText(f"Speed Limit: {Speed_limit} Km/h")
+            self.status.setText("Settings saved!")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
