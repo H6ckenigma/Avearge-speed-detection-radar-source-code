@@ -4,6 +4,8 @@ import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QHBoxLayout, QPushButton, QTextEdit
 from PyQt6.QtCore import Qt
 import subprocess
+import pandas
+import os
 class RadarGUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -126,6 +128,11 @@ class RadarGUI(QMainWindow):
         self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.sim_process = None
 
+        from PyQt6.QtCore import QTimer
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.refresh_log)
+        self.update_timer.start(3000)
+
         self.start_btn.clicked.connect(self.start_simulation)
         self.stop_btn.clicked.connect(self.stop_simulation)
 
@@ -194,9 +201,9 @@ class RadarGUI(QMainWindow):
             return
         import subprocess
         import sys
-
         try:
             self.sim_process = subprocess.Popen([sys.executable, "main.py"])
+            
             self.start_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
             self.status.setText("Simulation running...")
@@ -217,6 +224,33 @@ class RadarGUI(QMainWindow):
             self.status.setStyleSheet(self.status.styleSheet().replace("font-weight: bold;", ""))
         except:
             pass
+    
+    def refresh_log(self):
+        import os
+        import pandas
+        from radar_conf import results_file
+
+        if not os.path.exists(results_file):
+            return
+        
+        try:
+            df = pandas.read_csv(results_file)
+            if len(df) == 0:
+                return
+            
+            recent = df.tail(5)
+            log_text = ""
+            for i, row in recent.iterrows():
+                status = "SPEEDING" if "High Speed" in str(row['status']) else "Good"
+                speed = str(row['speed']).replace("Km/h", "")
+                log_line = f"{row['plate']} | {speed} km/h | {status}"
+                log_text += log_line + "\n"
+            current = self.live_log.toPlainText()
+            if log_text.strip() != current.strip():
+                self.live_log.setPlainText(log_text.strip())
+        except Exception:
+            pass
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = RadarGUI()
