@@ -126,12 +126,11 @@ class RadarGUI(QMainWindow):
         self.stop_btn.setStyleSheet(btn_style)
         self.start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.sim_process = None
 
-        from PyQt6.QtCore import QTimer
-        self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self.refresh_log)
-        self.update_timer.start(3000)
+        self.sim_process = QProcess()
+        self.sim_process.readyReadStandardOutput.connect(self.handle_stdout)
+        self.sim_process.readyReadStandardError.connect(self.handle_stderr)
+        self.sim_process.finished.connect(self.process_finished)
 
         self.start_btn.clicked.connect(self.start_simulation)
         self.stop_btn.clicked.connect(self.stop_simulation)
@@ -181,8 +180,8 @@ class RadarGUI(QMainWindow):
                     x1:0, y1:0, x2:0, y2:1,
                     stop:0 #0f0f0f,
                     stop:1 #0a0a0a);                    
-                color: #00ff00;
-                border: 2px solid #00ff00;
+                color: #e0e1dd;
+                border: 2px solid #3a86ff;
                 border-radius: 12px;
                 padding: 15px;
                 font-family: Consolas, monospace;
@@ -191,73 +190,54 @@ class RadarGUI(QMainWindow):
                 }
 
         """)
+        self.live_log.setHtml("")
         self.live_log.append("Waiting for the simulation to start...")
         layout.addWidget(self.live_log)
         
         layout.addStretch()
 
     def start_simulation(self):
-        if self.sim_process is not None:
+        if self.sim_process.state() == QProcess.ProcessState.Running:
             return
 
         try:
-            self.sim_process = QProcess()
-            self.sim_process.readyReadStandardOutput.connect(self.handle_stdout)
-            self.sim_process.readyReadStandardError.connect(self.handle_stderr)
-            self.sim_process.finished.connect(self.process_finished)
-            
+            self.sim_process.start(sys.executable, ["main.py"])
             self.start_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
             self.status.setText("Simulation running...")
             self.status.setStyleSheet(self.status.styleSheet() + " color: #00ff00; font-weight: bold;")
-            self.live_log.append("Simulation Started. Waiting for cars..")
+            self.live_log.append("")
         except Exception:
             self.live_log.append(f"ERROR: {Exception}")
 
     def stop_simulation(self):
         if self.sim_process.state() == QProcess.ProcessState.NotRunning:
             return
-        try:
-            self.sim_process.terminate()
-            self.sim_process.waitForFinished(3000)
-            self.start_btn.setEnabled(True)
-            self.stop_btn.setEnabled(False)
-            self.status.setText("Simulation stopped.")
-            self.status.setStyleSheet(self.status.styleSheet().replace("font-weight: bold;", ""))
-        except:
-            pass
+
+        self.sim_process.terminate()
+        self.sim_process.waitForFinished(3000)
+        self.start_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
+        self.status.setText("Simulation stopped.")
+        self.status.setStyleSheet(self.status.styleSheet().replace("font-weight: bold;", ""))
+
     
-    def refresh_log(self):
-        import os
-        import pandas
-        from radar_conf import results_file
-
-        if not os.path.exists(results_file):
-            return
-        
-        try:
-            df = pandas.read_csv(results_file)
-            if len(df) == 0:
-                return
-            
-            recent = df.tail(5)
-            log_text = ""
-            for i, row in recent.iterrows():
-                status = "SPEEDING" if "High Speed" in str(row['status']) else "Good"
-                speed = str(row['speed']).replace("Km/h", "")
-                log_line = f"{row['plate']} | {speed} km/h | {status}"
-                log_text += log_line + "\n"
-            current = self.live_log.toPlainText()
-            if log_text.strip() != current.strip():
-                self.live_log.setPlainText(log_text.strip())
-        except Exception:
-            pass
-
     def handle_stdout(self):
         data = self.sim_process.readAllStandardOutput()
         stdout = bytes(data).decode("utf8")
-        self.live_log.append(stdout.strip())
-        
+        lines = stdout.strip().split('\n')
+        for line in lines:
+            if not line:
+                continue
+            if "SPEEDING" in line.upper():
+                self.live_log.append(f"<font color='#ff5555'>{line}</font>")
+            elif "Car #" in line:
+                self.live_log.append(f"<font color='#55ff55'>{line}</font>")
+            else:
+                self.live_log.append(f"<font color='#55ff55'>{line}</font>")
+            #auto scroll
+            self.live_log.verticalScrollBar().setValue(self.live_log.verticalScrollBar().maximum())
+
     def handle_stderr(self):
         data = self.sim_process.readAllStandardError()
         stderr = bytes(data).decode("utf8")
