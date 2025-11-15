@@ -2,18 +2,8 @@ import streamlit as st
 import pandas as pd
 import time
 import random
-
-# plate generator
-def gen_plate():    
-    num = "".join([str(random.randint(0,9)) for _ in range(6)])
-    city = str(random.randint(1,58))
-    letter = random.choice("ABDEFG")
-    return num + "|" + letter + "|" + city
-
-# Config
-Distance = 50.0
-Speed_limit = 120
-Num_cars = 30
+from Data_simulator import gen_plate
+from radar_conf import Distance, Speed_limit, Num_cars
 
 # Page setup
 st.set_page_config(page_title="Radar Enigma", layout="wide")
@@ -27,76 +17,107 @@ st.markdown("---")
 st.sidebar.header("Configuration")
 distance = st.sidebar.slider("Distance between radars (km)", 10, 200, int(Distance))
 speed_limit = st.sidebar.slider("Speed Limit (km/h)", 60, 180, Speed_limit)
-num_cars = st.sidebar.slider("Number of cars", 5, 30, min(Num_cars, 20))
 
 # display metrics
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 col1.metric("Distance", f"{distance} km")
 col2.metric("Speed Limit", f"{speed_limit} km/h")
-col3.metric("Cars", num_cars)
 
 st.markdown("---")
+
+# initialize session state
+if 'running' not in st.session_state:
+    st.session_state.running = False
+if 'car_count' not in st.session_state:
+    st.session_state.car_count = 0
+if 'total_speeders' not in st.session_state:
+    st.session_state.total_speeders = 0
+if 'total_speed' not in st.session_state:
+    st.session_state.total_speed = 0
+if 'log_lines' not in st.session_state:
+    st.session_state.log_lines = []
 
 # control buttons
-col1, col2 = st.columns([1, 4])
+col1, col2, col3 = st.columns([1, 1, 3])
 with col1:
-    start_btn = st.button("Start Simulation", use_container_width=True)
+    if st.button("Start Simulation", use_container_width=True, disabled=st.session_state.running):
+        st.session_state.running = True
+        st.session_state.car_count = 0
+        st.session_state.total_speeders = 0
+        st.session_state.total_speed = 0
+        st.session_state.log_lines = []
+        st.rerun()
+        
+with col2:
+    if st.button("Stop Simulation", use_container_width=True, disabled=not st.session_state.running):
+        st.session_state.running = False
+        st.rerun()
 
 st.markdown("---")
+
+# Status
+if st.session_state.running:
+    st.success("Simulation running...")
+else:
+    st.info("Ready")
+
 st.subheader("Live Detections")
 
-if start_btn:
-    results = []
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    log_area = st.empty()
+# stats display
+stats_col1, stats_col2, stats_col3 = st.columns(3)
+stats_col1.metric("Total Cars", st.session_state.car_count)
+stats_col2.metric("Speeders", st.session_state.total_speeders)
+if st.session_state.car_count > 0:
+    stats_col3.metric("Average Speed", f"{st.session_state.total_speed/st.session_state.car_count:.0f} km/h")
+else:
+    stats_col3.metric("Average Speed", "0 km/h")
+
+# log display
+log_container = st.container()
+
+if st.session_state.running:
+    # generate new car
+    st.session_state.car_count += 1
+    plate = gen_plate()
+    speed = random.randint(80, 160)
     
-    #stats columns
-    stats_col1, stats_col2, stats_col3 = st.columns(3)
+    # check if speeding
+    if speed > speed_limit:
+        status = "SPEEDING"
+        st.session_state.total_speeders += 1
+    else:
+        status = "Good"
     
-    total_speeders = 0
-    total_speed = 0
-    log_text = ""
+    st.session_state.total_speed += speed
     
-    # run simulation
-    for i in range(num_cars):
-        plate = gen_plate()
-        speed = random.randint(80, 160)
-        
-        # check if speeding
-        if speed > speed_limit:
-            status = "SPEEDING"
-            total_speeders += 1
-        else:
-            status = "Good"
-        
-        total_speed += speed
-        
-        # update progress
-        progress_bar.progress((i + 1) / num_cars)
-        status_text.text(f"Processing car {i + 1}/{num_cars}...")
-        
-        log_text += f"Car #{i + 1} | {plate} | {speed} km/h | {status}\n"
-        log_area.text_area("", log_text, height=300)
-        
-        # update stats
-        stats_col1.metric("Total Cars", i + 1)
-        stats_col2.metric("Speeders", total_speeders)
-        stats_col3.metric("Average Speed", f"{total_speed/(i+1):.0f} km/h")
-        
-        results.append({'plate': plate, 'speed': speed, 'status': status})
-        
-        time.sleep(0.2)
+    # add to log
+    log_line = f"Car #{st.session_state.car_count} > {plate} going {speed} km/h >> {status}"
+    st.session_state.log_lines.append(log_line)
     
-    status_text.success("Simulation Complete")
+    # display log (latest at top)
+    with log_container:
+        for line in reversed(st.session_state.log_lines[-50:]):  # show last 50 cars
+            if "SPEEDING" in line:
+                st.markdown(f"<span style='color: #ff5555;'>{line}</span>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<span style='color: #55ff55;'>{line}</span>", unsafe_allow_html=True)
     
-    # show results table
-    st.markdown("---")
-    st.subheader("Results Summary")
-    st.dataframe(pd.DataFrame(results), use_container_width=True)
+    # wait and continue
+    time.sleep(1)
+    st.rerun()
 
 else:
-    st.info("Click Start Simulation to begin")
+    # show log when stopped
+    if len(st.session_state.log_lines) > 0:
+        with log_container:
+            for line in reversed(st.session_state.log_lines[-50:]):
+                if "SPEEDING" in line:
+                    st.markdown(f"<span style='color: #ff5555;'>{line}</span>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<span style='color: #55ff55;'>{line}</span>", unsafe_allow_html=True)
+    else:
+        with log_container:
+            st.write("Waiting for simulation to start...")
     
     # instructions
     with st.expander("How it works"):
@@ -104,21 +125,7 @@ else:
         This system uses two radar points to calculate average speed over a distance.
         Unlike single point radars that can be bypassed using waze, this measures speed
         over the entire section and cannot be circumvented.
-        
-        The system records timestamps at both radars and calculates the average speed
-        based on the distance traveled and time taken.
-        """)
-    
-    # about section
-    with st.expander("About this project"):
-        st.write("""
-        Built to address road safety issues in Morocco where drivers often bypass 
-        single-point speed cameras using navigation apps.
-        
-        Average speed cameras have been proven to reduce accidents by 40-60 percent
-        in countries where they are deployed.
-        
-        GitHub: https://github.com/H6ckenigma/New_radr_system/
         """)
 
 st.markdown("---")
+st.markdown("Made for road safety in Morocco")
