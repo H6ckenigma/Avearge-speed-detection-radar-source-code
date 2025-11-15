@@ -28,12 +28,12 @@ if 'cars' not in st.session_state:
     st.session_state.cars = []
 
 col1, col2 = st.columns([1, 4])
-if col1.button("Start", disabled=st.session_state.running):
+if col1.button("Start Simulation", disabled=st.session_state.running):
     st.session_state.running = True
     st.session_state.cars = []
     st.rerun()
 
-if col2.button("Stop", disabled=not st.session_state.running):
+if col2.button("Stop Simulation", disabled=not st.session_state.running):
     st.session_state.running = False
     st.rerun()
 
@@ -94,4 +94,5 @@ else:
     st.info("Click Start to begin")
 
 st.markdown("---")
-st.markdown("Made for road safety in Morocco")
+st.markdown("The software version is better you can check it out in the github")
+st.markdown("GitHub: https://github.com/H6ckenigma/New_radr_system")
