@@ -1,387 +1,141 @@
-#The GUI
+import streamlit as st
+import pandas as pd
+import time
+import random
+from Data_simulator import gen_plate
+from radar_conf import Distance, Speed_limit, Num_cars
 
-import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QHBoxLayout, QPushButton, QTextEdit, QLineEdit, QDialog, QFormLayout
-from PyQt6.QtCore import Qt, QProcess, QUrl
-from PyQt6.QtMultimedia import QSoundEffect
-import subprocess
-import pandas
-import os
+# Page setup
+st.set_page_config(page_title="Radar Enigma", layout="wide")
 
-class SettingsDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Settings")
-        self.setMinimumWidth(400)
+# Title
+st.markdown("# Radar Enigma")
+st.markdown("### Average Speed Detection System")
+st.markdown("---")
 
-        self.setStyleSheet("""
-            QDialog {
-                background: #1b263b;   
-                color: #e0e1dd;
-            }
-            QLabel {
-                color: #e0e1dd;
-                font-size: 14px;
-            }
-            QLineEdit {
-                background: #0d1b2a;
-                color: #e0e1dd;
-                border: 2px solid #3a86ff;        
-                border-radius:6px;
-                padding: 8px;
-                font-size: 14px;
-            }
-            QPushButton {
-            background: #3a86ff;
-            color: #e0e1dd;
-            border: non;
-            padding: 10px 20px;
-            font-size: 14px;
-            font-weight: bold;
-            border-radius: 6px;
-            }
-            QPushButton:hover {
-                background: #ffb703;       
-                color: #000000;
-            }
-        """)
+# settings sidebar
+st.sidebar.header("Configuration")
+distance = st.sidebar.slider("Distance between radars (km)", 10, 200, int(Distance))
+speed_limit = st.sidebar.slider("Speed Limit (km/h)", 60, 180, Speed_limit)
 
-        from radar_conf import Distance, Speed_limit, Num_cars
+# display metrics
+col1, col2 = st.columns(2)
+col1.metric("Distance", f"{distance} km")
+col2.metric("Speed Limit", f"{speed_limit} km/h")
 
-        layout = QVBoxLayout()
-        form = QFormLayout()
+st.markdown("---")
 
-        self.distance_input = QLineEdit(str(Distance))
-        form.addRow("Distance (km):", self.distance_input)
-
-        self.speed_input = QLineEdit(str(Speed_limit))
-        form.addRow("Speed Limit(km/h)", self.speed_input)
-
-        self.cars_input = QLineEdit(str(Num_cars))
-        form.addRow("Number of Cars", self.cars_input)
-
-        layout.addLayout(form)
-
-        button_layout = QHBoxLayout()
-        save_btn = QPushButton("Save")
-        cancel_btn = QPushButton("Cancel")
-
-        save_btn.clicked.connect(self.save_settings)
-        cancel_btn.clicked.connect(self.reject)
-
-        button_layout.addWidget(save_btn)
-        button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
-
-        self.setLayout(layout)
-
-    def save_settings(self):
-        try:
-            with open('radar_conf.py', 'r') as f:
-                lines = f.readlines()
-            
-            new_lines = []
-            for line in lines:
-                if line.strip().startswith('Distance ='):
-                    new_lines.append(f"Distance = {float(self.distance_input.text())}\n")
-                elif line.strip().startswith('Speed_limit ='):
-                    new_lines.append(f"Speed_limit = {int(self.speed_input.text())}\n")
-                elif line.strip().startswith('Num_cars ='):
-                    new_lines.append(f"Num_cars = {int(self.cars_input.text())}\n")
-                else: new_lines.append(line)
-
-            with open('radar_conf.py', 'w') as f:
-                f.writelines(new_lines)
-
-            self.accept()
-        except Exception:
-            print(f"Error: {Exception}")
-            self.reject()
-
-
-class RadarGUI(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("New Radar System")
-        self.setGeometry(100, 100, 900, 700)
-
-        #Dark BG
-        self.setStyleSheet("""
-            QMainWindow {
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #0d1b2a,
-                    stop:1 #1b263b
-                );        
-            }
-        """)
-
-        #widget
-        main_widget = QWidget()
-        main_widget.setStyleSheet("background: transparent;")
-        self.setCentralWidget(main_widget)
-        layout = QVBoxLayout()
-        main_widget.setLayout(layout)
-        layout.setSpacing(25)
-        layout.setContentsMargins(40, 30, 40, 30)
-
-        # Style the button with animation
-        btn_style = """
-        QPushButton {
-            background: qlineargradient(
-                x1:0, y1:0, x2:0, y2:1,
-                stop:0 #3a86ff,
-                stop:1 #1d5fcf
-            );
-            color: #e0e1dd;
-            border: 2px solid #3a86ff;
-            padding: 18px 40px;
-            font-size: 15px;
-            font-weight: bold;
-            letter-spacing: 2px;
-            border-radius: 12px;
-        }
-        QPushButton:hover {
-            background: qlineargradient(
-                x1:0, y1:0, x2:0, y2:1,
-                stop:0 #ffb703,
-                stop:1 #e09a03
-            );
-            color: #000000;
-            border: 2px solid #ffb703;
-        }
-        QPushButton:pressed {
-            background: #e09a03;
-            padding: 20px 40px 16px 40px;
-        }
-        QPushButton:disabled {
-            background: #415a77;
-            color: #8d99ae;
-            border: 2px solid #778da9;
-        }
-
-        """
-
-        #title
-        title = QLabel("Radar Enigma")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("""
-            font-size: 22px;
-            font-weight: bold;
-            color: #e0e1dd;
-            letter-spacing: 4px;
-            margin: 20px;
-            padding: 15px;
-            background: rgba(58, 134, 255, 0.08);
-            border: 2px solid #3a86ff;
-            border-radius: 12px;
-            """)
-        layout.addWidget(title)
-
-        from radar_conf import Distance, Speed_limit
-
-        info_layout = QHBoxLayout()
-        info_layout.setSpacing(20)
-
-        self.distance_label = QLabel(f"Distance : {Distance} km")
-        self.speedlimit_label = QLabel(f"Speed Limit: {Speed_limit}")
-        info_style= """
-            QLabel {
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:0,
-                    stop:0 rgba(255, 183, 3, 0.18),
-                    stop:1 rgba(255, 183, 3, 0.1)
-                );
-                color: #e0e1dd;
-                font-size: 16px;
-                font-weight: 600;
-                padding: 20px 30px;
-                border: 2px solid rgba(58, 134, 255, 0.4);
-                border-left: 4px solid #3a86ff;
-                border-radius: 20px;
-                letter-spacing: 1px;
-            }
-        """
-        self.distance_label.setStyleSheet(info_style)
-        self.speedlimit_label.setStyleSheet(info_style)
-        info_layout.addWidget(self.distance_label)
-        info_layout.addWidget(self.speedlimit_label)
+# control buttons
+col1, col2, col3 = st.columns([1, 1, 3])
+with col1:
+    if st.button("Start Simulation", use_container_width=True):
+        st.session_state.running = True
+        st.session_state.results = []
+        st.rerun()
         
-        self.settings_btn = QPushButton("Settings")
-        self.settings_btn.setStyleSheet(btn_style)
-        self.settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.settings_btn.clicked.connect(self.open_settings)
-        info_layout.addWidget(self.settings_btn)
-        
-        layout.addLayout(info_layout)
+with col2:
+    if st.button("Stop Simulation", use_container_width=True):
+        st.session_state.running = False
+        st.rerun()
 
-        layout.addSpacing(20)
-        #Buttons
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(30)
-        self.start_btn = QPushButton("Start sim")
-        self.stop_btn = QPushButton("Stop Sim")
+st.markdown("---")
+st.subheader("Live Detections")
 
-        self.stop_btn.setEnabled(False)
+# initialize session state
+if 'running' not in st.session_state:
+    st.session_state.running = False
+if 'results' not in st.session_state:
+    st.session_state.results = []
 
-        self.start_btn.setStyleSheet(btn_style)
-        self.stop_btn.setStyleSheet(btn_style)
-        self.start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-
-        self.sim_process = QProcess()
-        
-        #Sound if someone is speeding
-        self.beep = QSoundEffect()
-        self.beep.setSource(QUrl.fromLocalFile("beep.wav"))
-        self.beep.setVolume(0.5)
-
-        #clear log button
-        self.clear_log_btn = QPushButton("Clear Log")
-        self.clear_log_btn.setStyleSheet(btn_style.replace("Start Simulation", "Clear Log"))
-        self.clear_log_btn.clicked.connect(self.clear_log)
-        button_layout.addWidget(self.clear_log_btn)
-
-        self.sim_process.readyReadStandardOutput.connect(self.handle_stdout)
-        self.sim_process.readyReadStandardError.connect(self.handle_stderr)
-        self.sim_process.finished.connect(self.process_finished)
-
-        self.start_btn.clicked.connect(self.start_simulation)
-        self.stop_btn.clicked.connect(self.stop_simulation)
-
-        button_layout.addWidget(self.start_btn)
-        button_layout.addWidget(self.stop_btn)
-        layout.addLayout(button_layout)
-
-        layout.addSpacing(20)
-
-        # Status Message
-        self.status = QLabel("Ready")
-        self.status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status.setStyleSheet("""
-            QLabel {
-                background: rgba(255, 183, 3, 0.12);
-                color: #e0e1dd;
-                font-size: 14px;
-                font-style: italic;
-                font-weight:500;
-                padding: 15px;
-                border: 1px solid rgba(58, 134, 255, 0.3);
-                border-radius: 8px;
-                letter-spacing:1px;
-            }
-        """)
-        layout.addWidget(self.status)
-        log_label = QLabel("Live Detections")
-        log_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        log_label.setStyleSheet("""
-            QLabel {
-                color: #e0e1dd;
-                font-size: 18px;
-                font-weight: bold;
-                margin: 15px 0 10px 0;
-                letter-spacing:3px;
-                }
-        """)
-        layout.addWidget(log_label)
-
-        self.live_log = QTextEdit()
-        self.live_log.setReadOnly(True)
-        self.live_log.setMaximumHeight(180)
-        self.live_log.setStyleSheet("""
-            QTextEdit{
-                background: qlineargradient(
-                    x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #0f0f0f,
-                    stop:1 #0a0a0a);                    
-                color: #e0e1dd;
-                border: 2px solid #3a86ff;
-                border-radius: 12px;
-                padding: 15px;
-                font-family: Consolas, monospace;
-                font-size: 12px;
-                letter-spacing: 0.5px;
-                }
-
-        """)
-        self.live_log.setHtml("")
-        self.live_log.append("Waiting for the simulation to start...")
-        layout.addWidget(self.live_log)
-        
-        layout.addStretch()
-
-    def start_simulation(self):
-        if self.sim_process.state() == QProcess.ProcessState.Running:
-            return
-
-        try:
-            self.sim_process.start(sys.executable, ["-u", "main.py"])
-            self.live_log.clear()
-            self.start_btn.setEnabled(False)
-            self.stop_btn.setEnabled(True)
-            self.status.setText("Simulation running...")
-            self.status.setStyleSheet(self.status.styleSheet() + " color: #00ff00; font-weight: bold;")
-            self.live_log.append("")
-        except Exception:
-            self.live_log.append(f"ERROR: {Exception}")
-
-    def stop_simulation(self):
-        if self.sim_process.state() == QProcess.ProcessState.NotRunning:
-            return
-
-        self.sim_process.terminate()
-        self.sim_process.waitForFinished(3000)
-        self.start_btn.setEnabled(True)
-        self.stop_btn.setEnabled(False)
-        self.status.setText("Simulation stopped.")
-        self.status.setStyleSheet(self.status.styleSheet().replace("color: #00ff00;", "").replace("font-weight: bold;", ""))
-        if self.sim_process.state() == QProcess.ProcessState.Running:
-            self.sim_process.kill()
+if st.session_state.running:
+    # stats display
+    stats_col1, stats_col2, stats_col3 = st.columns(3)
+    total_cars_stat = stats_col1.empty()
+    speeders_stat = stats_col2.empty()
+    avg_speed_stat = stats_col3.empty()
     
-    def handle_stdout(self):
-        data = self.sim_process.readAllStandardOutput()
-        stdout = bytes(data).decode("utf8")
-        lines = stdout.strip().split('\n')
-        for line in lines:
-            if not line:
-                continue
-            if "SPEEDING" in line.upper():
-                self.live_log.append(f"<font color='#ff5555'>{line}</font>")
-                self.beep.play()
-            elif "Car #" in line:
-                self.live_log.append(f"<font color='#55ff55'>{line}</font>")
-            else:
-                self.live_log.append(f"<font color='#55ff55'>{line}</font>")
-            #auto scroll
-            self.live_log.verticalScrollBar().setValue(self.live_log.verticalScrollBar().maximum())
-
-    def handle_stderr(self):
-        data = self.sim_process.readAllStandardError()
-        stderr = bytes(data).decode("utf8")
-        self.live_log.append(f"<font color='#ff5555'>ERROR {stderr.strip()}</font>")
+    # log display
+    log_area = st.empty()
     
-    def process_finished(self):
-        self.live_log.append("Simulation ended.")
-        self.start_btn.setEnabled(True)
-        self.stop_btn.setEnabled(False)
-        self.status.setText("Ready.")
+    total_speeders = 0
+    total_speed = 0
+    car_count = 0
+    log_text = ""
     
-    def clear_log(self):
-        self.live_log.clear()
-        self.live_log.append("Log cleared.")
+    # continuous simulation loop
+    while st.session_state.running:
+        car_count += 1
+        plate = gen_plate()
+        speed = random.randint(80, 160)
+        
+        # check if speeding
+        if speed > speed_limit:
+            status = "SPEEDING"
+            total_speeders += 1
+            color = "red"
+        else:
+            status = "Good"
+            color = "green"
+        
+        total_speed += speed
+        
+        # add to log
+        log_text = f"Car #{car_count} | {plate} | {speed} km/h | {status}\n" + log_text
+        log_area.text_area("", log_text, height=300)
+        
+        # update stats
+        total_cars_stat.metric("Total Cars", car_count)
+        speeders_stat.metric("Speeders", total_speeders)
+        avg_speed_stat.metric("Average Speed", f"{total_speed/car_count:.0f} km/h")
+        
+        # store results
+        st.session_state.results.append({
+            'plate': plate,
+            'speed': speed,
+            'status': status,
+            'excess': max(0, speed - speed_limit)
+        })
+        
+        time.sleep(0.5)
+    
+    st.success("Simulation stopped")
+    
+    # show results when stopped
+    if len(st.session_state.results) > 0:
+        st.markdown("---")
+        st.subheader("Results Summary")
+        st.dataframe(pd.DataFrame(st.session_state.results), use_container_width=True)
 
-    def open_settings(self):
-        dialog = SettingsDialog(self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
+else:
+    st.info("Click Start Simulation to begin")
+    
+    # show previous results if any
+    if len(st.session_state.results) > 0:
+        st.markdown("---")
+        st.subheader("Previous Results")
+        st.dataframe(pd.DataFrame(st.session_state.results), use_container_width=True)
+    
+    # instructions
+    with st.expander("How it works"):
+        st.write("""
+        This system uses two radar points to calculate average speed over a distance.
+        Unlike single point radars that can be bypassed using waze, this measures speed
+        over the entire section and cannot be circumvented.
+        
+        The system records timestamps at both radars and calculates the average speed
+        based on the distance traveled and time taken.
+        """)
+    
+    # about section
+    with st.expander("About this project"):
+        st.write("""
+        Built to address road safety issues in Morocco where drivers often bypass 
+        single-point speed cameras using navigation apps.
+        
+        Average speed cameras have been proven to reduce accidents by 40-60 percent
+        in countries where they are deployed.
+        
+        GitHub: https://github.com/H6ckenigma/New_radr_system/
+        """)
 
-            from radar_conf import Distance, Speed_limit
-            self.distance_label.setText(f"Distance : {Distance} Km")
-            self.speedlimit_label.setText(f"Speed Limit: {Speed_limit} Km/h")
-            self.status.setText("Settings saved!")
-
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = RadarGUI()
-    window.show()
-    sys.exit(app.exec())
+st.markdown("---")
