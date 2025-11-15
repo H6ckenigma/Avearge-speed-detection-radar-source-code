@@ -246,7 +246,7 @@ class RadarGUI(QMainWindow):
     def process_finished(self):
         self.live_log.append("Simulation ended.")
         self.start_btn.setEnabled(True)
-        self.start_btn.setEnabled(False)
+        self.stop_btn.setEnabled(False)
         self.status.setText("Ready.")
 
 if __name__ == "__main__":

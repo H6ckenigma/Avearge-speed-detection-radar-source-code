@@ -48,7 +48,7 @@ time.sleep(0.5)
 for i in range(3):
     print(".", end="", flush=True)
     time.sleep(0.5)
-print("Ctrl+C to quit")
+print("Ctrl+C to quit", flush = True)
 time.sleep(1)
 
 from radar_conf import Distance, Speed_limit, radar_a_file, radar_b_file, results_file
@@ -72,7 +72,7 @@ try:
                 status = "Speeding!!"
             else:
                 status = "Good"
-            print(f"Car #{cars_total} > {plate} going {speed} km/h >> {status}")
+            print(f"Car #{cars_total} > {plate} going {speed} km/h >> {status}", flush=True)
         
         # Wait for user to check output
         time.sleep(1 + random.random() * 2)
@@ -82,7 +82,7 @@ try:
         if now - last_update > 10:
             try:
                 process()
-                print("Results Updated.")
+                print("Results Updated.", flush=True)
 
                 read = pandas.read_csv(results_file)
                 speeders = read[read['status'] == "High Speed"]
