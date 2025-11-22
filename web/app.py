@@ -4,7 +4,6 @@ from flask_cors import CORS
 import threading
 import time
 import random
-import pandas
 import os
 import sys
 from datetime import datetime
@@ -87,16 +86,27 @@ def get_results():
         results_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'results.csv')
         
         if os.path.exists(results_path):
-            df = pandas.read_csv(results_path)
+            # Read CSV manually without pandas
+            results = []
+            with open(results_path, 'r') as f:
+                header = f.readline().strip().split(',')
+                for line in f:
+                    values = line.strip().split(',')
+                    row = dict(zip(header, values))
+                    results.append(row)
+            
+            speeders = sum(1 for r in results if r.get('status') == 'High Speed')
+            
             return jsonify({
                 'success': True,
-                'data': df.to_dict('records'),
-                'total': len(df),
-                'speeders': len(df[df['status'] == 'High Speed'])
+                'data': results,
+                'total': len(results),
+                'speeders': speeders
             })
         return jsonify({'success': True, 'data': [], 'total': 0, 'speeders': 0})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
+
 
 def simulation_loop():
     """Main simulation loop - runs in background thread"""
