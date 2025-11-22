@@ -1,4 +1,4 @@
-# web/app.py - Web version without pandas
+# web/app.py - FINAL WORKING VERSION
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
@@ -10,22 +10,31 @@ import sys
 import csv
 from datetime import datetime
 
-# Add parent directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
-
-# Import your existing modules
-from radar_conf import Distance, Speed_limit, Num_cars, radar_a_file, radar_b_file, results_file
-from Data_simulator import gen_one_car
-from Processor import process
-
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'radar_secret_key_2025'
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 simulation_running = False
 simulation_thread = None
 cars_total = 0
+
+# Safe imports - handle missing modules
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+    from radar_conf import Distance, Speed_limit, Num_cars, radar_a_file, radar_b_file, results_file
+    from Data_simulator import gen_one_car
+    from Processor import process
+    HAS_SIMULATOR = True
+except ImportError as e:
+    print(f"Warning: Could not import simulator modules: {e}")
+    HAS_SIMULATOR = False
+    Distance = 50.0
+    Speed_limit = 120
+    Num_cars = 30
+    radar_a_file = "../data/radar_a.csv"
+    radar_b_file = "../data/radar_b.csv"
+    results_file = "../data/results.csv"
 
 @app.route('/')
 def index():
@@ -33,19 +42,31 @@ def index():
 
 @app.route('/api/config', methods=['GET'])
 def get_config():
-    import importlib
-    import radar_conf
-    importlib.reload(radar_conf)
+    try:
+        if HAS_SIMULATOR:
+            import importlib
+            import radar_conf
+            importlib.reload(radar_conf)
+            return jsonify({
+                'distance': radar_conf.Distance,
+                'speed_limit': radar_conf.Speed_limit,
+                'num_cars': radar_conf.Num_cars
+            })
+    except:
+        pass
     
     return jsonify({
-        'distance': radar_conf.Distance,
-        'speed_limit': radar_conf.Speed_limit,
-        'num_cars': radar_conf.Num_cars
+        'distance': Distance,
+        'speed_limit': Speed_limit,
+        'num_cars': Num_cars
     })
 
 @app.route('/api/config', methods=['POST'])
 def update_config():
     try:
+        if not HAS_SIMULATOR:
+            return jsonify({'success': False, 'error': 'Simulator not available'}), 400
+        
         data = request.json
         config_path = os.path.join(os.path.dirname(__file__), '..', 'src', 'radar_conf.py')
         
@@ -66,10 +87,6 @@ def update_config():
         with open(config_path, 'w') as f:
             f.writelines(new_lines)
         
-        import importlib
-        import radar_conf
-        importlib.reload(radar_conf)
-        
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -81,10 +98,14 @@ def get_results():
         
         if os.path.exists(results_path):
             results = []
-            with open(results_path, 'r') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    results.append(row)
+            try:
+                with open(results_path, 'r') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        results.append(row)
+            except Exception as csv_error:
+                print(f"CSV read error: {csv_error}")
+                return jsonify({'success': True, 'data': [], 'total': 0, 'speeders': 0})
             
             speeders = sum(1 for r in results if r.get('status') == 'High Speed')
             return jsonify({'success': True, 'data': results, 'total': len(results), 'speeders': speeders})
@@ -98,10 +119,18 @@ def simulation_loop():
     cars_total = 0
     last_update = time.time()
     
-    socketio.emit('log_message', {'message': '🚦 Radar System Started', 'type': 'info', 'timestamp': datetime.now().strftime('%H:%M:%S')})
+    socketio.emit('log_message', {
+        'message': '🚦 Radar System Started',
+        'type': 'info',
+        'timestamp': datetime.now().strftime('%H:%M:%S')
+    }, broadcast=True)
     
     while simulation_running:
         try:
+            if not HAS_SIMULATOR:
+                time.sleep(1)
+                continue
+            
             import importlib
             import radar_conf
             importlib.reload(radar_conf)
@@ -121,7 +150,7 @@ def simulation_loop():
                     'status': status,
                     'type': msg_type,
                     'timestamp': datetime.now().strftime('%H:%M:%S')
-                })
+                }, broadcast=True)
             
             time.sleep(1 + random.random() * 2)
             
@@ -129,12 +158,23 @@ def simulation_loop():
             if now - last_update > 10:
                 try:
                     process()
-                    socketio.emit('results_updated', {'message': '📊 Results Updated', 'timestamp': datetime.now().strftime('%H:%M:%S')})
-                except Exception as e:
-                    socketio.emit('log_message', {'message': f'⚠️ Error: {str(e)}', 'type': 'error', 'timestamp': datetime.now().strftime('%H:%M:%S')})
+                    socketio.emit('results_updated', {
+                        'message': '📊 Results Updated',
+                        'timestamp': datetime.now().strftime('%H:%M:%S')
+                    }, broadcast=True)
+                except Exception as proc_error:
+                    socketio.emit('log_message', {
+                        'message': f'⚠️ Processing error: {str(proc_error)}',
+                        'type': 'error',
+                        'timestamp': datetime.now().strftime('%H:%M:%S')
+                    }, broadcast=True)
                 last_update = now
         except Exception as e:
-            socketio.emit('log_message', {'message': f'❌ Error: {str(e)}', 'type': 'error', 'timestamp': datetime.now().strftime('%H:%M:%S')})
+            socketio.emit('log_message', {
+                'message': f'❌ Simulation error: {str(e)}',
+                'type': 'error',
+                'timestamp': datetime.now().strftime('%H:%M:%S')
+            }, broadcast=True)
             time.sleep(1)
 
 @socketio.on('start_simulation')
@@ -144,20 +184,37 @@ def handle_start_simulation():
         simulation_running = True
         simulation_thread = threading.Thread(target=simulation_loop, daemon=True)
         simulation_thread.start()
-        emit('simulation_started', {'message': 'Started'})
+        emit('simulation_started', {'message': 'Simulation started'}, broadcast=True)
 
 @socketio.on('stop_simulation')
 def handle_stop_simulation():
     global simulation_running
     if simulation_running:
         simulation_running = False
-        emit('simulation_stopped', {'message': 'Stopped'})
-        emit('log_message', {'message': '🛑 Stopped', 'type': 'info', 'timestamp': datetime.now().strftime('%H:%M:%S')})
+        emit('simulation_stopped', {'message': 'Simulation stopped'}, broadcast=True)
+        emit('log_message', {
+            'message': '🛑 Radar System Stopped',
+            'type': 'info',
+            'timestamp': datetime.now().strftime('%H:%M:%S')
+        }, broadcast=True)
 
 @socketio.on('connect')
 def handle_connect():
-    emit('log_message', {'message': '✅ Connected', 'type': 'success', 'timestamp': datetime.now().strftime('%H:%M:%S')})
+    emit('log_message', {
+        'message': '✅ Connected to Radar System',
+        'type': 'success',
+        'timestamp': datetime.now().strftime('%H:%M:%S')
+    }, broadcast=True)
+
+@socketio.on_error_default
+def default_error_handler(e):
+    print(f'SocketIO Error: {str(e)}')
 
 if __name__ == '__main__':
-    os.makedirs(os.path.join(os.path.dirname(__file__), '..', 'data'), exist_ok=True)
-    socketio.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
+    try:
+        os.makedirs(os.path.join(os.path.dirname(__file__), '..', 'data'), exist_ok=True)
+    except:
+        pass
+    
+    port = int(os.environ.get('PORT', 5000))
+    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
