@@ -5,7 +5,6 @@ import threading
 import time
 import random
 import os
-import sys
 import csv
 from datetime import datetime
 import string
