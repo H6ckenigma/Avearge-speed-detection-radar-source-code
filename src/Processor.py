@@ -11,8 +11,9 @@ def process():
     b = pandas.read_csv(radar_b_file)
     
     #Datetime format
-    a['time'] = pandas.to_datetime(a['time'])
-    b['time'] = pandas.to_datetime(b['time'])
+    a['time'] = pandas.to_datetime(a['time'], format='mixed')
+    b['time'] = pandas.to_datetime(b['time'], format='mixed')
+
     
     merged = pandas.merge(a, b, on='plate')
     
