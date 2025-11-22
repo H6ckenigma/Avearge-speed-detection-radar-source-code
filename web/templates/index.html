@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radar Enigma - Web Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="title">🚗 Radar Enigma</h1>
+            <p class="subtitle">Real-Time Speed Monitoring System</p>
+        </header>
+
+        <!-- Info Cards -->
+        <div class="info-section">
+            <div class="info-card">
+                <div class="info-label">Distance</div>
+                <div class="info-value" id="distance-value">-- km</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Speed Limit</div>
+                <div class="info-value" id="speed-limit-value">-- km/h</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Total Cars</div>
+                <div class="info-value" id="total-cars">0</div>
+            </div>
+            <div class="info-card speeding">
+                <div class="info-label">Speeding</div>
+                <div class="info-value" id="speeding-cars">0</div>
+            </div>
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="controls">
+            <button id="start-btn" class="btn btn-primary">
+                <span class="btn-icon">▶</span> Start Simulation
+            </button>
+            <button id="stop-btn" class="btn btn-secondary" disabled>
+                <span class="btn-icon">⏸</span> Stop Simulation
+            </button>
+            <button id="settings-btn" class="btn btn-settings">
+                <span class="btn-icon">⚙</span> Settings
+            </button>
+            <button id="clear-btn" class="btn btn-clear">
+                <span class="btn-icon">🗑</span> Clear Log
+            </button>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar" id="status-bar">
+            <span class="status-indicator" id="status-indicator">●</span>
+            <span id="status-text">Ready to start</span>
+        </div>
+
+        <!-- Live Detection Log -->
+        <div class="log-section">
+            <div class="log-header">
+                <h2>📡 Live Detections</h2>
+                <span class="connection-status" id="connection-status">● Connected</span>
+            </div>
+            <div class="log-container" id="log-container">
+                <div class="log-message info">
+                    <span class="log-time">--:--:--</span>
+                    <span class="log-text">Waiting for simulation to start...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section">
+            <h2>📊 Recent Results</h2>
+            <button id="refresh-results-btn" class="btn btn-small">Refresh Results</button>
+            <div id="results-container" class="results-container">
+                <p class="no-data">No data available. Start the simulation first.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙ Settings</h2>
+                <button class="close-btn" id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="distance-input">Distance (km)</label>
+                    <input type="number" id="distance-input" step="0.1" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="speed-limit-input">Speed Limit (km/h)</label>
+                    <input type="number" id="speed-limit-input" min="30" max="200">
+                </div>
+                <div class="form-group">
+                    <label for="num-cars-input">Number of Cars</label>
+                    <input type="number" id="num-cars-input" min="1" max="100">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="save-settings-btn" class="btn btn-primary">Save Settings</button>
+                <button id="cancel-settings-btn" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
