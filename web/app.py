@@ -70,7 +70,6 @@ def process():
     results_path = os.path.join(data_dir, 'results.csv')
     
     if not os.path.exists(radar_a_path) or not os.path.exists(radar_b_path):
-        print("Radar files don't exist yet")
         return
     
     radar_a_data = {}
@@ -81,7 +80,6 @@ def process():
             reader = csv.DictReader(f)
             for row in reader:
                 radar_a_data[row['Plate']] = float(row['Timestamp'])
-        print(f"Loaded {len(radar_a_data)} cars from radar A")
     except Exception as e:
         print(f"Error reading radar_a: {e}")
         return
@@ -91,7 +89,6 @@ def process():
             reader = csv.DictReader(f)
             for row in reader:
                 radar_b_data[row['Plate']] = float(row['Timestamp'])
-        print(f"Loaded {len(radar_b_data)} cars from radar B")
     except Exception as e:
         print(f"Error reading radar_b: {e}")
         return
@@ -114,14 +111,10 @@ def process():
                     'time_b': time_b
                 })
     
-    print(f"Processed {len(results)} matching cars")
-    
     with open(results_path, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=['plate', 'speed', 'status', 'time_a', 'time_b'])
         writer.writeheader()
         writer.writerows(results)
-    
-    print(f"Saved results to {results_path}")
 
 @app.route('/')
 def index():
@@ -151,8 +144,6 @@ def update_config():
 def get_results():
     try:
         results_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'results.csv')
-        print(f"Fetching results from: {results_path}")
-        
         if os.path.exists(results_path):
             results = []
             try:
@@ -160,18 +151,22 @@ def get_results():
                     reader = csv.DictReader(f)
                     for row in reader:
                         results.append(row)
-                print(f"Found {len(results)} results")
             except Exception as csv_error:
                 print(f"CSV read error: {csv_error}")
                 return jsonify({'success': True, 'data': [], 'total': 0, 'speeders': 0})
-            
             speeders = sum(1 for r in results if r.get('status') == 'High Speed')
             return jsonify({'success': True, 'data': results, 'total': len(results), 'speeders': speeders})
-        
-        print("Results file doesn't exist")
         return jsonify({'success': True, 'data': [], 'total': 0, 'speeders': 0})
     except Exception as e:
         print(f"API error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/process', methods=['POST'])
+def trigger_process():
+    try:
+        process()
+        return jsonify({'success': True, 'message': 'Results processed successfully'})
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
 def simulation_loop():
@@ -206,7 +201,6 @@ def simulation_loop():
             
             now = time.time()
             if now - last_update > 10:
-                print("Auto-processing results...")
                 try:
                     process()
                     socketio.emit('results_updated', {
@@ -242,25 +236,6 @@ def handle_stop_simulation():
         emit('log_message', {
             'message': '🛑 Radar System Stopped',
             'type': 'info',
-            'timestamp': datetime.now().strftime('%H:%M:%S')
-        })
-
-@socketio.on('refresh_results')
-def handle_refresh_results():
-    print("Refresh results requested")
-    try:
-        process()
-        emit('log_message', {
-            'message': '🔄 Results refreshed manually',
-            'type': 'info',
-            'timestamp': datetime.now().strftime('%H:%M:%S')
-        })
-        emit('results_updated', {'message': 'Results updated'})
-    except Exception as e:
-        print(f"Refresh error: {e}")
-        emit('log_message', {
-            'message': f'❌ Refresh error: {str(e)}',
-            'type': 'error',
             'timestamp': datetime.now().strftime('%H:%M:%S')
         })
 
