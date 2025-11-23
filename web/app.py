@@ -24,8 +24,8 @@ Num_cars = 30
 
 def gen_one_car():
     numbers = ''.join(random.choices(string.digits, k=6))
-    letter = random.choice(string.ascii_uppercase)
-    region = random.randint(10, 99)
+    letter = random.choice("ABDEFG")
+    region = random.randint(1, 58)
     plate = f"{numbers}|{letter}|{region}"
     
     speed = random.randint(80, 160)
@@ -39,8 +39,15 @@ def gen_one_car():
     radar_a_path = os.path.join(data_dir, 'radar_a.csv')
     radar_b_path = os.path.join(data_dir, 'radar_b.csv')
     
-    file_a_exists = os.path.exists(radar_a_path) and os.path.getsize(radar_a_path) > 0
-    file_b_exists = os.path.exists(radar_b_path) and os.path.getsize(radar_b_path) > 0
+    try:
+        file_a_exists = os.path.exists(radar_a_path) and os.path.getsize(radar_a_path) > 0
+    except:
+        file_a_exists = False
+    
+    try:
+        file_b_exists = os.path.exists(radar_b_path) and os.path.getsize(radar_b_path) > 0
+    except:
+        file_b_exists = False
     
     with open(radar_a_path, 'a', newline='') as f:
         writer = csv.writer(f)
@@ -73,7 +80,8 @@ def process():
             reader = csv.DictReader(f)
             for row in reader:
                 radar_a_data[row['Plate']] = float(row['Timestamp'])
-    except:
+    except Exception as e:
+        print(f"Error reading radar_a: {e}")
         return
     
     try:
@@ -81,7 +89,8 @@ def process():
             reader = csv.DictReader(f)
             for row in reader:
                 radar_b_data[row['Plate']] = float(row['Timestamp'])
-    except:
+    except Exception as e:
+        print(f"Error reading radar_b: {e}")
         return
     
     results = []
@@ -142,11 +151,21 @@ def get_results():
                     reader = csv.DictReader(f)
                     for row in reader:
                         results.append(row)
-            except:
+            except Exception as csv_error:
+                print(f"CSV read error: {csv_error}")
                 return jsonify({'success': True, 'data': [], 'total': 0, 'speeders': 0})
             speeders = sum(1 for r in results if r.get('status') == 'High Speed')
             return jsonify({'success': True, 'data': results, 'total': len(results), 'speeders': speeders})
         return jsonify({'success': True, 'data': [], 'total': 0, 'speeders': 0})
+    except Exception as e:
+        print(f"API error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/process', methods=['POST'])
+def trigger_process():
+    try:
+        process()
+        return jsonify({'success': True, 'message': 'Results processed successfully'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
