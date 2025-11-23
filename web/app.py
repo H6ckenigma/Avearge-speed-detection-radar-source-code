@@ -23,17 +23,89 @@ Speed_limit = 120
 Num_cars = 30
 
 def gen_one_car():
-    numbers = ''.join(random.choices(string.digits, k=4))
-    letters = ''.join(random.choices(string.ascii_uppercase, k=3))
+    numbers = ''.join(random.choices(string.digits, k=6))
+    letter = random.choice(string.ascii_uppercase)
     region = random.randint(10, 99)
-    plate = f"{numbers}|{letters}|{region}"
+    plate = f"{numbers}|{letter}|{region}"
+    
     speed = random.randint(80, 160)
     time_a = time.time()
-    time_b = time_a + random.uniform(1.0, 3.0)
+    time_delay = (Distance / speed) * 3600 + random.uniform(-0.5, 0.5)
+    time_b = time_a + time_delay
+    
+    data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
+    os.makedirs(data_dir, exist_ok=True)
+    
+    radar_a_path = os.path.join(data_dir, 'radar_a.csv')
+    radar_b_path = os.path.join(data_dir, 'radar_b.csv')
+    
+    file_a_exists = os.path.exists(radar_a_path) and os.path.getsize(radar_a_path) > 0
+    file_b_exists = os.path.exists(radar_b_path) and os.path.getsize(radar_b_path) > 0
+    
+    with open(radar_a_path, 'a', newline='') as f:
+        writer = csv.writer(f)
+        if not file_a_exists:
+            writer.writerow(['Plate', 'Timestamp'])
+        writer.writerow([plate, time_a])
+    
+    with open(radar_b_path, 'a', newline='') as f:
+        writer = csv.writer(f)
+        if not file_b_exists:
+            writer.writerow(['Plate', 'Timestamp'])
+        writer.writerow([plate, time_b])
+    
     return plate, time_a, time_b, speed
 
 def process():
-    pass
+    data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
+    radar_a_path = os.path.join(data_dir, 'radar_a.csv')
+    radar_b_path = os.path.join(data_dir, 'radar_b.csv')
+    results_path = os.path.join(data_dir, 'results.csv')
+    
+    if not os.path.exists(radar_a_path) or not os.path.exists(radar_b_path):
+        return
+    
+    radar_a_data = {}
+    radar_b_data = {}
+    
+    try:
+        with open(radar_a_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                radar_a_data[row['Plate']] = float(row['Timestamp'])
+    except:
+        return
+    
+    try:
+        with open(radar_b_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                radar_b_data[row['Plate']] = float(row['Timestamp'])
+    except:
+        return
+    
+    results = []
+    for plate in radar_a_data:
+        if plate in radar_b_data:
+            time_a = radar_a_data[plate]
+            time_b = radar_b_data[plate]
+            time_diff = abs(time_b - time_a) / 3600
+            
+            if time_diff > 0:
+                speed = int(Distance / time_diff)
+                status = 'High Speed' if speed > Speed_limit else 'Good'
+                results.append({
+                    'plate': plate,
+                    'speed': speed,
+                    'status': status,
+                    'time_a': time_a,
+                    'time_b': time_b
+                })
+    
+    with open(results_path, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=['plate', 'speed', 'status', 'time_a', 'time_b'])
+        writer.writeheader()
+        writer.writerows(results)
 
 @app.route('/')
 def index():
@@ -81,6 +153,7 @@ def get_results():
 def simulation_loop():
     global simulation_running, cars_total, Speed_limit
     cars_total = 0
+    last_update = time.time()
     
     socketio.emit('log_message', {
         'message': '🚦 Radar System Started',
@@ -106,6 +179,18 @@ def simulation_loop():
                 })
             
             time.sleep(1.5)
+            
+            now = time.time()
+            if now - last_update > 10:
+                try:
+                    process()
+                    socketio.emit('results_updated', {
+                        'message': '📊 Results Updated',
+                        'timestamp': datetime.now().strftime('%H:%M:%S')
+                    })
+                except Exception as proc_error:
+                    print(f"Processing error: {proc_error}")
+                last_update = now
         except Exception as e:
             socketio.emit('log_message', {
                 'message': f'❌ Error: {str(e)}',
