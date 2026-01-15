@@ -26,7 +26,6 @@ const resultsContainer = document.getElementById('results-container');
 let carCount = 0;
 let speedingCount = 0;
 
-// Load initial configuration
 function loadConfig() {
     fetch('/api/config')
         .then(res => res.json())
@@ -89,12 +88,10 @@ function loadResults() {
         });
 }
 
-// Display results in table
 function displayResults(data) {
     const table = document.createElement('table');
     table.className = 'results-table';
     
-    // Table header
     table.innerHTML = `
         <thead>
             <tr>
@@ -122,7 +119,6 @@ function displayResults(data) {
     resultsContainer.appendChild(table);
 }
 
-// Socket.IO Event Handlers
 
 socket.on('connect', () => {
     console.log('Connected to server');
@@ -153,7 +149,6 @@ socket.on('car_detected', (data) => {
             data.timestamp
         );
         
-        // Play beep sound (you can add audio element if needed)
         playBeep();
     } else {
         addLog(
@@ -184,8 +179,6 @@ socket.on('simulation_stopped', (data) => {
     startBtn.disabled = false;
     stopBtn.disabled = true;
 });
-
-// Button Event Handlers
 
 startBtn.addEventListener('click', () => {
     socket.emit('start_simulation');
@@ -241,14 +234,12 @@ saveSettingsBtn.addEventListener('click', () => {
     });
 });
 
-// Close modal when clicking outside
 settingsModal.addEventListener('click', (e) => {
     if (e.target === settingsModal) {
         settingsModal.classList.remove('active');
     }
 });
 
-// Beep sound function (simple beep using Web Audio API)
 function playBeep() {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
@@ -267,7 +258,6 @@ function playBeep() {
     oscillator.stop(audioContext.currentTime + 0.3);
 }
 
-// Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
     loadConfig();
     loadResults();
